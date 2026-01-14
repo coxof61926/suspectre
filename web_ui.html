@@ -1,0 +1,382 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suspectre</title>
+  <style>
+    :root {
+      --bg: #101820;
+      --panel: #1b2634;
+      --accent: #f2aa4c;
+      --text: #f8f5f0;
+      --muted: #95a1b1;
+    }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: radial-gradient(circle at top, #1e2a3a, #0c1118);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 18px;
+      background: linear-gradient(90deg, rgba(242,170,76,0.2), rgba(0,0,0,0));
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: transparent;
+      padding: 8px 16px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+    }
+    .tab.active {
+      background: var(--accent);
+      color: #101820;
+    }
+    .panel {
+      margin: 20px;
+      padding: 16px;
+      background: var(--panel);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      vertical-align: top;
+    }
+    th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+    .actions button {
+      margin: 2px;
+      background: #2f3a4a;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .actions button.primary { border-color: var(--accent); color: var(--accent); }
+    .notes {
+      width: 100%;
+      background: #111a24;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px;
+      font-size: 11px;
+    }
+    .muted { color: var(--muted); font-size: 12px; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .controls button {
+      background: var(--accent);
+      color: #101820;
+      border: none;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+    }
+    .controls input[type="file"] {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .settings input {
+      background: #111a24;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px;
+      font-size: 12px;
+      width: 100%;
+      max-width: 280px;
+    }
+    .settings select {
+      background: #111a24;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px;
+      font-size: 12px;
+      width: 100%;
+      max-width: 280px;
+    }
+  </style>
+</head>
+<body>
+  <header>Suspectre</header>
+  <div class="tabs">
+    <button class="tab active" data-tab="scan">Current Scan</button>
+    <button class="tab" data-tab="suspects">Suspects</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </div>
+  <div class="panel" id="scan-panel">
+    <div class="controls">
+      <button id="flag-btn">Flag All In Range</button>
+      <button id="pause-btn">Pause</button>
+      <span class="muted" id="scan-status"></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Address</th><th>Name</th><th>RSSI</th><th>Action</th></tr>
+      </thead>
+      <tbody id="scan-body"></tbody>
+    </table>
+  </div>
+  <div class="panel" id="suspects-panel" style="display:none;">
+    <div class="controls">
+      <a href="/download/suspects.csv" class="muted">Download CSV</a>
+      <input id="import-file" type="file" accept=".csv,text/csv" />
+      <button id="import-btn">Import CSV</button>
+      <span class="muted" id="import-status"></span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Address</th><th>Name</th><th>Count</th><th>Confirmed</th><th>Notes</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="suspects-body"></tbody>
+    </table>
+  </div>
+  <div class="panel" id="settings-panel" style="display:none;">
+    <div class="settings">
+      <div class="muted">Hotspot Settings</div>
+      <div>
+        <label>SSID</label><br />
+        <input id="ssid" />
+      </div>
+      <div>
+        <label>Password</label><br />
+        <input id="pass" type="password" />
+      </div>
+      <div>
+        <label><input id="ssid-hidden" type="checkbox" /> Hide SSID</label>
+      </div>
+      <div style="margin-top: 12px;" class="muted">LED Output</div>
+      <div>
+        <label>Mode</label><br />
+        <select id="led-mode">
+          <option value="0">NeoPixel (RGB, single-pin)</option>
+          <option value="1">PWM RGB (3 pins)</option>
+          <option value="2">Digital (single-pin)</option>
+          <option value="3">Off</option>
+        </select>
+      </div>
+      <div>
+        <label>LED Pin (NeoPixel/Digital)</label><br />
+        <input id="led-pin" type="number" min="0" max="48" />
+      </div>
+      <div>
+        <label>PWM Pins (R/G/B)</label><br />
+        <input id="led-pin-r" type="number" min="0" max="48" placeholder="R" />
+        <input id="led-pin-g" type="number" min="0" max="48" placeholder="G" />
+        <input id="led-pin-b" type="number" min="0" max="48" placeholder="B" />
+      </div>
+      <div>
+        <label><input id="led-active-low" type="checkbox" /> Active-low output</label>
+      </div>
+      <button id="save-settings">Save Settings</button>
+      <button id="reboot-now" style="margin-left: 8px; background:#e8513e; color:#fff;">Reboot Now</button>
+      <div class="muted" id="settings-status"></div>
+    </div>
+  </div>
+<script>
+const tabs = document.querySelectorAll('.tab');
+const panels = {
+  scan: document.getElementById('scan-panel'),
+  suspects: document.getElementById('suspects-panel'),
+  settings: document.getElementById('settings-panel')
+};
+
+function setTab(tab) {
+  tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  Object.keys(panels).forEach(key => panels[key].style.display = key === tab ? 'block' : 'none');
+}
+
+tabs.forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+
+async function fetchScan() {
+  const res = await fetch('/api/scan');
+  const data = await res.json();
+  const body = document.getElementById('scan-body');
+  body.innerHTML = '';
+  data.devices.forEach(dev => {
+    const tr = document.createElement('tr');
+    if (dev.confirmed) {
+      tr.style.background = 'rgba(255, 80, 80, 0.18)';
+    } else if (dev.suspect) {
+      tr.style.background = 'rgba(255, 210, 80, 0.16)';
+    }
+    const flagLabel = dev.suspect ? 'Flagged' : 'Flag';
+    const flagDisabled = dev.suspect ? 'disabled' : '';
+    tr.innerHTML = `<td>${dev.addr}</td><td>${dev.name || ''}</td><td>${dev.rssi}</td>` +
+      `<td><button class="flag-one" data-addr="${dev.addr}" ${flagDisabled}>${flagLabel}</button></td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById('scan-status').textContent = `Last scan: ${data.lastScan}s ago, ${data.devices.length} devices`;
+}
+
+async function fetchSuspects() {
+  const res = await fetch('/api/suspects');
+  const data = await res.json();
+  const body = document.getElementById('suspects-body');
+  body.innerHTML = '';
+  data.suspects.forEach(entry => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${entry.addr}</td>
+      <td>${entry.name || ''}</td>
+      <td>${entry.count}</td>
+      <td>${entry.confirmed ? 'Yes' : 'No'}</td>
+      <td><textarea class="notes" data-addr="${entry.addr}">${entry.notes || ''}</textarea></td>
+      <td class="actions">
+        <button class="primary" data-action="confirm" data-addr="${entry.addr}">Confirm</button>
+        <button data-action="remove" data-addr="${entry.addr}">Remove</button>
+        <button data-action="whitelist" data-addr="${entry.addr}">Whitelist</button>
+        <button data-action="notes" data-addr="${entry.addr}">Save Notes</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+async function postAction(addr, action, notes) {
+  await fetch('/api/suspect/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ addr, action, notes })
+  });
+  fetchSuspects();
+}
+
+async function loadSettings() {
+  const res = await fetch('/api/settings');
+  const data = await res.json();
+  document.getElementById('ssid').value = data.ssid;
+  document.getElementById('pass').value = data.pass;
+  document.getElementById('ssid-hidden').checked = !!data.ssidHidden;
+  document.getElementById('led-mode').value = data.ledMode;
+  document.getElementById('led-pin').value = data.ledPin;
+  document.getElementById('led-pin-r').value = data.ledPinR;
+  document.getElementById('led-pin-g').value = data.ledPinG;
+  document.getElementById('led-pin-b').value = data.ledPinB;
+  document.getElementById('led-active-low').checked = !!data.ledActiveLow;
+}
+
+async function saveSettings() {
+  const ssid = document.getElementById('ssid').value;
+  const pass = document.getElementById('pass').value;
+  const ssidHidden = document.getElementById('ssid-hidden').checked;
+  const ledMode = parseInt(document.getElementById('led-mode').value, 10);
+  const ledPin = parseInt(document.getElementById('led-pin').value, 10);
+  const ledPinR = parseInt(document.getElementById('led-pin-r').value, 10);
+  const ledPinG = parseInt(document.getElementById('led-pin-g').value, 10);
+  const ledPinB = parseInt(document.getElementById('led-pin-b').value, 10);
+  const ledActiveLow = document.getElementById('led-active-low').checked;
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ssid, pass, ssidHidden, ledMode, ledPin, ledPinR, ledPinG, ledPinB, ledActiveLow })
+  });
+  const data = await res.json();
+  document.getElementById('settings-status').textContent = data.message;
+}
+
+let scanTimer = setInterval(fetchScan, 5000);
+let suspectTimer = setInterval(fetchSuspects, 6000);
+let paused = false;
+
+fetchScan();
+fetchSuspects();
+loadSettings();
+
+const flagBtn = document.getElementById('flag-btn');
+flagBtn.addEventListener('click', () => fetch('/api/flag', { method: 'POST' }).then(fetchSuspects));
+
+const pauseBtn = document.getElementById('pause-btn');
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  if (paused) {
+    clearInterval(scanTimer);
+    clearInterval(suspectTimer);
+    pauseBtn.textContent = 'Resume';
+  } else {
+    scanTimer = setInterval(fetchScan, 5000);
+    suspectTimer = setInterval(fetchSuspects, 6000);
+    pauseBtn.textContent = 'Pause';
+    fetchScan();
+    fetchSuspects();
+  }
+});
+
+document.getElementById('import-btn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('import-file');
+  const statusEl = document.getElementById('import-status');
+  if (!fileInput.files.length) {
+    statusEl.textContent = 'Select a CSV file first.';
+    return;
+  }
+  const file = fileInput.files[0];
+  const text = await file.text();
+  const res = await fetch('/api/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/csv' },
+    body: text
+  });
+  const data = await res.json();
+  statusEl.textContent = data.message || 'Import complete.';
+  fetchSuspects();
+});
+
+const suspectsBody = document.getElementById('suspects-body');
+suspectsBody.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!target.dataset.action) return;
+  const addr = target.dataset.addr;
+  const action = target.dataset.action;
+  const notes = action === 'notes' ? document.querySelector(`textarea[data-addr="${addr}"]`).value : undefined;
+  postAction(addr, action, notes);
+});
+
+const scanBody = document.getElementById('scan-body');
+scanBody.addEventListener('click', async (event) => {
+  const target = event.target;
+  if (!target.classList.contains('flag-one')) return;
+  const addr = target.dataset.addr;
+  if (!addr) return;
+  if (!confirm(`Flag ${addr} as suspect?`)) return;
+  await fetch('/api/flag_one', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ addr })
+  });
+  fetchScan();
+  fetchSuspects();
+});
+
+document.getElementById('save-settings').addEventListener('click', saveSettings);
+document.getElementById('reboot-now').addEventListener('click', async () => {
+  const res = await fetch('/api/reboot', { method: 'POST' });
+  const data = await res.json();
+  document.getElementById('settings-status').textContent = data.message;
+});
+</script>
+</body>
+</html>
